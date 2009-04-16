@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<gdml xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://service-spi.web.cern.ch/service-spi/app/releases/GDML/schema/gdml.xsd">
+
+<define>
+	<!--Acrylic Rod Specifications-->
+	<!--To fully specify the geometry, give the acrylic rod length, the outer diameter, and the thickness of the acrylic wall.
+	    The remainder of the variables for the acrylic will be determined automatically.-->
+	<constant name="acrylic_rod_length" value="1000" unit="mm"/>
+	<constant name="acrylic_rod_od" value="200" unit="mm"/>
+	<constant name="acrylic_thickness" value="10" unit="mm"/>
+	<!--Calculated at runtime - should not be changed here-->
+	<constant name="acrylic_rod_id" value="acrylic_rod_od-2*acrylic_thickness" unit="mm"/>
+	<constant name="acrylic_rod_or" value="acrylic_rod_od*0.5" unit="mm"/>
+	<constant name="acrylic_rod_ir" value="acrylic_rod_id*0.5" unit="mm"/>
+	<!--Detector Specifications-->
+	<!--The size of the detector is set by the acrylic rod dimensions.  Only the number of pixels and the detetector thickness
+	    should be changed here.-->
+	<constant name="detector_depth" value="5" unit="mm"/>
+	<constant name="detector_pixels_per_side" value="20"/>
+	<!--Calulated at runtime - should not be changed-->
+	<constant name="detector_side_length" value="acrylic_rod_od" unit="mm"/>
+	<constant name="detector_pixel_side_length" value="detector_side_length/detector_pixels_per_side" unit="mm"/>
+	<!--Locations-->
+	<position name="origin" x="0" y="0" z="0" unit="mm"/>
+	<position name="south_acrylic_end" x="0" y="0" z="-0.5*acrylic_rod_length" unit="mm"/>
+	<position name="north_acrylic_end" x="0" y="0" z="0.5*acrylic_rod_length" unit="mm"/>
+	<position name="north_detector_center" x="0" y="0" z="0.5*(acrylic_rod_length+detector_depth)"/>
+	<position name="south_detector_center" x="0" y="0" z="-0.5*(acrylic_rod_length+detector_depth)"/>
+</define>
+
+<materials>
+	<element name="Nitrogen" formula="N" Z="7.">
+		<atom value="14.01"/>
+	</element>
+	<element name="Oxygen" formula="O" Z="8.">
+		<atom value="16.0"/>
+	</element>
+	<material Z="1.0" name="AIR" state="gas">
+        	<D value="1.290" unit="mg/cm3"/>
+		<fraction n="0.7" ref="Nitrogen"/>
+		<fraction n="0.3" ref="Oxygen"/>
+	</material>
+	<material name="ALU" state="solid" Z="13.0">
+        	<D value="2.70"/>
+         	<atom value="26.98"/>
+      	</material>
+</materials>
+
+<solids>
+     	<box name="WorldBox" x="100" y="100" z="2000"/>
+	<!--geometry primitives for detector.-->
+	<box name="square" x="detector_pixel_side_length" y="detector_pixel_side_length" z="detector_depth"/>
+	<box name="pixel_row" x="detector_pixels_per_side*detector_pixel_side_length" y="detector_pixel_side_length" z="detector_depth"/>
+	<box name="det_full" x="detector_pixels_per_side*detector_pixel_side_length" y="detector_pixels_per_side*detector_pixel_side_length" z="detector_depth"/>
+	<!--geometry primitives for acrylic rod-->
+	<box name="rod_cavity" x="acrylic_rod_id" y ="acrylic_rod_id" z="acrylic_rod_length"/>
+	<box name="rod_short_side" x="acrylic_rod_id" y="acrylic_thickness" z="acrylic_rod_length"/>
+	<box name="rod_long_side" x="acrylic_thickness" y="acrylic_rod_od" z="acrylic_rod_length"/>
+	<union name="rod_L">
+		<first ref="rod_long_side"/>
+		<second ref="rod_short_side"/>
+		<position x="0.5*(acrylic_rod_id+acrylic_thickness)" y="0.5*(acrylic_rod_od-acrylic_thickness)" z="0"/>
+	</union>
+	<union name="rod_exterior">
+		<first ref="rod_L"/>
+		<second ref="rod_L"/>
+		<position x="acrylic_rod_od-acrylic_thickness"/>
+		<rotation z="180" unit="deg"/>
+	</union>
+</solids>
+ 
+<structure>
+	<volume name="detseg">       
+		<materialref ref="ALU"/>
+         	<solidref ref="square"/>
+	</volume>
+
+	<volume name="rod_interior">
+		<materialref ref="AIR"/>
+		<solidref ref="rod_cavity"/>
+	</volume>
+
+	<volume name="rod_exterior">
+		<materialref ref="ALU"/>
+		<solidref ref="rod_exterior"/>
+	</volume>
+
+	<volume name="pixelrow">
+		<materialref ref="ALU"/>
+		<solidref ref="pixel_row"/>		
+		<replicavol number="detector_pixels_per_side">
+			<volumeref ref="detseg"/>
+			<replicate_along_axis>
+				<direction x="1"/>
+				<width value="detector_pixel_side_length" unit="mm"/>
+				<offset value="0" unit="mm"/>
+			</replicate_along_axis>
+		</replicavol>
+	</volume>
+
+	<volume name="detector">
+		<materialref ref="ALU"/>
+		<solidref ref="det_full"/>
+		<replicavol number="detector_pixels_per_side">
+			<volumeref ref="pixelrow"/>
+			<replicate_along_axis>
+				<direction y="1"/>
+				<width value="detector_pixel_side_length" unit="mm"/>
+				<offset value="0" unit="mm"/>
+			</replicate_along_axis>
+		</replicavol>
+	</volume>
+
+	<volume name="TOP">
+		<materialref ref="AIR"/>
+         	<solidref ref="WorldBox"/>
+		<physvol name="d11">
+			<volumeref ref="detector"/>
+			<positionref ref="south_detector_center"/>
+		</physvol>
+		<physvol name="d22">
+			<volumeref ref="detector"/>
+			<positionref ref="north_detector_center"/>
+		</physvol>
+		<physvol name="rod_inside">
+			<volumeref ref="rod_interior"/>
+			<positionref ref="origin"/>
+		</physvol>
+		<physvol name="rod_outside">
+			<volumeref ref="rod_exterior"/>
+			<position x="-acrylic_rod_or+0.5*acrylic_thickness" y="0" z="0"/>
+		</physvol>
+	</volume>
+</structure>
+
+<setup version="1.0" name="Default">
+	<world ref="TOP"/>
+</setup>
+
+</gdml>
+
+
+
